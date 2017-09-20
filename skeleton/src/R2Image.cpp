@@ -270,9 +270,9 @@ SobelX(void)
 	// Apply the Sobel oprator to the image in X direction
   R2Image temp(*this);
 
-  int weights[3][3] = {{1, 0, -1},
-                      {2, 0, -2},
-                      {1, 0, -1}};
+  double weights[3][3] = {{1.0, 0.0, -1.0},
+                          {2.0, 0.0, -2.0},
+                          {1.0, 0.0, -1.0}};
 
   for (int y = 1; y <= height - 1; y++) {
     for (int x = 1; x <= width - 1; x++) {
@@ -296,9 +296,9 @@ SobelY(void)
 	// Apply the Sobel oprator to the image in Y direction
   R2Image temp(*this);
 
-  int weights[][3] = {{-1, -2, -1},
-                      {0, 0, 0},
-                      {1, 2, 1}};
+  double weights[][3] = {{-1.0, -2.0, -1.0},
+                         {0.0, 0.0, 0.0},
+                         {1.0, 2.0, 1.0}};
 
   for (int y = 1; y <= height - 1; y++) {
     for (int x = 1; x <= width - 1; x++) {
@@ -364,12 +364,11 @@ void R2Image::
 Sharpen()
 {
   // Sharpen an image using a linear filter. Use a kernel of your choosing.
-  // Apply the Sobel oprator to the image in X direction
   R2Image temp(*this);
 
-  int weights[3][3] = {{0, -1, 0},
-                       {-1, 5, -1},
-                       {0, -1, 0}};
+  double weights[3][3] = {{0.0, -1.0, 0.0},
+                          {-1.0, 5.0, -1.0},
+                          {0.0, -1.0, 0.0}};
 
   for (int y = 1; y <= height - 1; y++) {
     for (int x = 1; x <= width - 1; x++) {
