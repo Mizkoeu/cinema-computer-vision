@@ -8,8 +8,8 @@
 #include "R2Pixel.h"
 #include "R2Image.h"
 #include "svd.h"
-
-
+#include <iostream>
+#include <math.h>
 
 ////////////////////////////////////////////////////////////////////////
 // Constructors/Destructors
@@ -276,14 +276,14 @@ SobelX(void)
 
   for (int y = 1; y <= height - 1; y++) {
     for (int x = 1; x <= width - 1; x++) {
-      R2Pixel* val = new R2Pixel();
+      R2Pixel val;
       for (int ly = -1; ly <= 1; ly++) {
         for (int lx = -1; lx <= 1; lx++) {
           //printf("The weight: %d\n", weights[lx + 1][ly + 1]);
-          *val += Pixel(x + lx, y + ly) * weights[lx + 1][ly + 1];
+          val += Pixel(x + lx, y + ly) * weights[lx + 1][ly + 1];
         }
       }
-      temp.Pixel(x, y) = *val;
+      temp.Pixel(x, y) = val;
       temp.Pixel(x, y).Clamp();
     }
   }
@@ -343,8 +343,50 @@ void R2Image::
 Blur(double sigma)
 {
   // Gaussian blur of the image. Separable solution is preferred
-
+  int curveWidth = 3 * sigma;
+  int size = curveWidth * 2 + 1;
   // FILL IN IMPLEMENTATION HERE (REMOVE PRINT STATEMENT WHEN DONE)
+  R2Image temp(*this);
+
+  // Compute the weights based on the sigma value
+  double totWeight = 0.0;
+  double lineWeights[size];
+  for (int i = -curveWidth; i <= curveWidth; i++) {
+    int index = i + curveWidth;
+    lineWeights[index] = exp(- (i * i) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
+    totWeight += lineWeights[index];
+  }
+
+  //normalize the kernel
+  for (int i = 0; i < size; i++) {
+    lineWeights[i] /= totWeight;
+    std :: cout << lineWeights[i] << "\n";
+    //std :: cout << totWeight  << "\n";
+  }
+
+  for (int y = curveWidth; y < height - curveWidth; y++) {
+    for (int x = 0; x < width; x++) {
+      R2Pixel* val = new R2Pixel();
+      for (int ly = -curveWidth; ly <= curveWidth; ly++) {
+        *val += lineWeights[ly + curveWidth] * Pixel(x, y + ly);
+      }
+      temp.Pixel(x, y) = *val;
+      temp.Pixel(x, y).Clamp();
+    }
+  }
+
+  for (int y = 0; y < height; y++) {
+    for (int x = curveWidth; x < width - curveWidth; x++) {
+      R2Pixel* val = new R2Pixel();
+      for (int lx = -curveWidth; lx <= curveWidth; lx++) {
+        *val += lineWeights[lx + curveWidth] * temp.Pixel(x + lx, y);
+      }
+      Pixel(x, y) = *val;
+      Pixel(x, y).Clamp();
+    }
+  }
+  //*this = temp;
+
   fprintf(stderr, "Blur(%g) not implemented\n", sigma);
 }
 
