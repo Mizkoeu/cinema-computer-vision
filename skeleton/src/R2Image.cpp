@@ -364,30 +364,29 @@ Blur(double sigma)
     //std :: cout << totWeight  << "\n";
   }
 
-  for (int y = curveWidth; y < height - curveWidth; y++) {
+  //vertical blur: Gaussian first pass
+  for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       R2Pixel* val = new R2Pixel();
       for (int ly = -curveWidth; ly <= curveWidth; ly++) {
-        *val += lineWeights[ly + curveWidth] * Pixel(x, y + ly);
+        *val += lineWeights[ly + curveWidth] * Pixel(x, std::max(0, std::min(y + ly, height -1)));
       }
       temp.Pixel(x, y) = *val;
       temp.Pixel(x, y).Clamp();
     }
   }
 
+  //Horizontal blur: Gaussian second pass
   for (int y = 0; y < height; y++) {
-    for (int x = curveWidth; x < width - curveWidth; x++) {
+    for (int x = 0; x < width; x++) {
       R2Pixel* val = new R2Pixel();
       for (int lx = -curveWidth; lx <= curveWidth; lx++) {
-        *val += lineWeights[lx + curveWidth] * temp.Pixel(x + lx, y);
+        *val += lineWeights[lx + curveWidth] * temp.Pixel(std::max(0, std::min(x + lx, width -1)), y);
       }
       Pixel(x, y) = *val;
       Pixel(x, y).Clamp();
     }
   }
-  //*this = temp;
-
-  fprintf(stderr, "Blur(%g) not implemented\n", sigma);
 }
 
 
