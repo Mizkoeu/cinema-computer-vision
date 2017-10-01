@@ -284,7 +284,7 @@ SobelX(void)
         }
       }
       temp.Pixel(x, y) = val;
-      temp.Pixel(x, y).Clamp();
+      //temp.Pixel(x, y).Clamp();
     }
   }
   *this = temp;
@@ -310,7 +310,7 @@ SobelY(void)
         }
       }
       temp.Pixel(x, y) = *val;
-      temp.Pixel(x, y).Clamp();
+      //temp.Pixel(x, y).Clamp();
     }
   }
   *this = temp;
@@ -360,7 +360,7 @@ Blur(double sigma)
   //normalize the kernel
   for (int i = 0; i < size; i++) {
     lineWeights[i] /= totWeight;
-    std :: cout << lineWeights[i] << "\n";
+    //std :: cout << lineWeights[i] << "\n";
     //std :: cout << totWeight  << "\n";
   }
 
@@ -372,7 +372,7 @@ Blur(double sigma)
         *val += lineWeights[ly + curveWidth] * Pixel(x, std::max(0, std::min(y + ly, height -1)));
       }
       temp.Pixel(x, y) = *val;
-      temp.Pixel(x, y).Clamp();
+      //temp.Pixel(x, y).Clamp();
     }
   }
 
@@ -384,17 +384,104 @@ Blur(double sigma)
         *val += lineWeights[lx + curveWidth] * temp.Pixel(std::max(0, std::min(x + lx, width -1)), y);
       }
       Pixel(x, y) = *val;
-      Pixel(x, y).Clamp();
+      //Pixel(x, y).Clamp();
     }
   }
 }
 
+void R2Image::
+Greyscale()
+{
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      R2Pixel pix = Pixel(x, y);
+      double average = (pix.Red() + pix.Blue() + pix.Green()) / 3.0;
+      Pixel(x, y) = R2Pixel(average, average, average, 1);
+    }
+  }
+}
 
 void R2Image::
 Harris(double sigma)
 {
     // Harris corner detector. Make use of the previously developed filters, such as the Gaussian blur filter
 	// Output should be 50% grey at flat regions, white at corners and black/dark near edges
+  this->Greyscale();
+  R2Image* sobelX2 = new R2Image(*this);
+  sobelX2->SobelX();
+  R2Image* sobelY2 = new R2Image(*this);
+  sobelY2->SobelY();
+  R2Image* sobelXY = new R2Image(width, height);
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      sobelXY->Pixel(x, y) = sobelX2->Pixel(x, y) * sobelY2->Pixel(x, y);
+      sobelX2->Pixel(x, y) *= sobelX2->Pixel(x, y);
+      sobelY2->Pixel(x, y) *= sobelY2->Pixel(x, y);
+    }
+  }
+
+  printf("Blurrrrrring...\n");
+  sobelX2->Blur(sigma);
+  sobelY2->Blur(sigma);
+  sobelXY->Blur(sigma);
+
+  printf("Finished blrrring...\n");
+  //R2Pixel offset(.5, .5, .5, 1.0);
+  double harris2DArray[width][height];
+  double maxHarris = 0;
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      // Pixel(x, y) = sobelX2.Pixel(x, y) * sobelY2.Pixel(x, y) - sobelXY.Pixel(x, y) * sobelXY.Pixel(x, y)
+      //               - .04 * ((sobelX2.Pixel(x, y) + sobelY2.Pixel(x, y)) * (sobelX2.Pixel(x, y) + sobelY2.Pixel(x, y)))
+      //               ;//+ offset;
+      R2Pixel harrisPix(sobelX2->Pixel(x, y) * sobelY2->Pixel(x, y) - sobelXY->Pixel(x, y) * sobelXY->Pixel(x, y)
+                    - .04 * ((sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y)) * (sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y))));
+                    //+ offset;
+      harris2DArray[x][y] = harrisPix.Red();
+      if (harrisPix.Red() > maxHarris) {
+        maxHarris = harrisPix.Red();
+      }
+      //Pixel(x, y).Clamp();
+    }
+  }
+
+  int featureCounter = 0;
+
+  for (int level = 10; level >= 0; level--) {
+    featureCounter = 0;
+    double threshold = level/10.0 * maxHarris;
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if (harris2DArray[x][y] > threshold) {
+          for (int ly = -10; ly <= 10; ly++) {
+            for (int lx = -10; lx <= 10; lx++) {
+              int xCoord = std::max(0, std::min(x + lx, width -1));
+              int yCoord = std::max(0, std::min(y + ly, height -1));
+              // Pixel(std::max(0, std::min(x + lx, width -1)),
+              //       std::max(0, std::min(y + ly, height -1))) = R2red_pixel;
+              harris2DArray[xCoord][yCoord] = 0;
+              int radius = ly * ly + lx * lx;
+              if (radius <= 18 && radius >= 8) {
+                Pixel(xCoord, yCoord) = R2red_pixel;
+              }
+            }
+          }
+          featureCounter++;
+        }
+      }
+    }
+
+    printf("So far I found %d features at %d%% threshold..\n", featureCounter, level*10);
+
+    if (featureCounter >= 150) {
+      break;
+    }
+  }
+
+
+  printf("There are %d features in total!\n", featureCounter);
 
   // FILL IN IMPLEMENTATION HERE (REMOVE PRINT STATEMENT WHEN DONE)
   fprintf(stderr, "Harris(%g) not implemented\n", sigma);
