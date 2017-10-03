@@ -422,69 +422,84 @@ Harris(double sigma)
 
   printf("Blurrrrrring...\n");
   sobelX2->Blur(sigma);
+  printf("first blur done\n");
   sobelY2->Blur(sigma);
+  printf("second blur done\n");
   sobelXY->Blur(sigma);
 
   printf("Finished blrrring...\n");
-  //R2Pixel offset(.5, .5, .5, 1.0);
-  double harris2DArray[width][height];
+  R2Pixel offset(.5, .5, .5, 0);
+  printf("1..\n");
+  double* harris2DArray = new double[width*height];
+  printf("2..\n");
   double maxHarris = 0;
+    printf("3..\n");
 
+  int filterType = 1;
+
+  printf("Trying to compute Harris score now...\n");
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      // Pixel(x, y) = sobelX2.Pixel(x, y) * sobelY2.Pixel(x, y) - sobelXY.Pixel(x, y) * sobelXY.Pixel(x, y)
-      //               - .04 * ((sobelX2.Pixel(x, y) + sobelY2.Pixel(x, y)) * (sobelX2.Pixel(x, y) + sobelY2.Pixel(x, y)))
-      //               ;//+ offset;
-      R2Pixel harrisPix(sobelX2->Pixel(x, y) * sobelY2->Pixel(x, y) - sobelXY->Pixel(x, y) * sobelXY->Pixel(x, y)
-                    - .04 * ((sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y)) * (sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y))));
-                    //+ offset;
-      harris2DArray[x][y] = harrisPix.Red();
-      if (harrisPix.Red() > maxHarris) {
-        maxHarris = harrisPix.Red();
+      if (filterType == 0) {
+        Pixel(x, y) = sobelX2->Pixel(x, y) * sobelY2->Pixel(x, y) - sobelXY->Pixel(x, y) * sobelXY->Pixel(x, y)
+                      - .04 * ((sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y)) * (sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y)))
+                      + offset;
+        Pixel(x, y).Clamp();
       }
-      //Pixel(x, y).Clamp();
+
+      if (filterType == 1) {
+        R2Pixel harrisPix(sobelX2->Pixel(x, y) * sobelY2->Pixel(x, y) - sobelXY->Pixel(x, y) * sobelXY->Pixel(x, y)
+                      - .04 * ((sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y)) * (sobelX2->Pixel(x, y) + sobelY2->Pixel(x, y))));
+        harris2DArray[x+y*width] = harrisPix.Red();
+        if (harrisPix.Red() > maxHarris) {
+          maxHarris = harrisPix.Red();
+      }
+      }
     }
   }
+  printf("Harris scores are computed!\n");
 
-  int featureCounter = 0;
+  free(sobelXY);
+  free(sobelX2);
+  free(sobelY2);
 
-  for (int level = 10; level >= 0; level--) {
-    featureCounter = 0;
-    double threshold = level/10.0 * maxHarris;
+  if (filterType == 1) {
 
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        if (harris2DArray[x][y] > threshold) {
-          for (int ly = -10; ly <= 10; ly++) {
-            for (int lx = -10; lx <= 10; lx++) {
-              int xCoord = std::max(0, std::min(x + lx, width -1));
-              int yCoord = std::max(0, std::min(y + ly, height -1));
-              // Pixel(std::max(0, std::min(x + lx, width -1)),
-              //       std::max(0, std::min(y + ly, height -1))) = R2red_pixel;
-              harris2DArray[xCoord][yCoord] = 0;
-              int radius = ly * ly + lx * lx;
-              if (radius <= 18 && radius >= 8) {
-                Pixel(xCoord, yCoord) = R2red_pixel;
+    int featureCounter = 0;
+
+    for (int level = 20; level > 0; level--) {
+      //featureCounter = 0;
+      double threshold = (double) level/20.0 * maxHarris;
+
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          if (harris2DArray[x+y*width] >= threshold) {
+            featureCounter++;
+            for (int ly = -10; ly <= 10; ly++) {
+              for (int lx = -10; lx <= 10; lx++) {
+                int xCoord = std::max(0, std::min(x + lx, width -1));
+                int yCoord = std::max(0, std::min(y + ly, height -1));
+                // Pixel(std::max(0, std::min(x + lx, width -1)),
+                //       std::max(0, std::min(y + ly, height -1))) = R2red_pixel;
+                harris2DArray[xCoord+yCoord*width] = 0;
+                int radius = ly * ly + lx * lx;
+                if (radius <= 18 && radius >= 8) {
+                  Pixel(xCoord, yCoord) = R2red_pixel;
+                }
               }
             }
           }
-          featureCounter++;
         }
       }
-    }
 
-    printf("So far I found %d features at %d%% threshold..\n", featureCounter, level*10);
+      printf("So far I found %d features at %d%% threshold..\n", featureCounter, level*5);
 
-    if (featureCounter >= 150) {
-      break;
+      if (featureCounter >= 150) {
+        break;
+      }
     }
+    printf("There are %d features in total!\n", featureCounter);
   }
-
-
-  printf("There are %d features in total!\n", featureCounter);
-
-  // FILL IN IMPLEMENTATION HERE (REMOVE PRINT STATEMENT WHEN DONE)
-  fprintf(stderr, "Harris(%g) not implemented\n", sigma);
 }
 
 
