@@ -1,6 +1,9 @@
 // Include file for image class
 #ifndef R2_IMAGE_INCLUDED
 #define R2_IMAGE_INCLUDED
+#include <iostream>
+#include <utility>
+#include <vector>
 
 
 
@@ -72,10 +75,11 @@ class R2Image {
   void LoG();
   void Blur(double sigma);
   void Greyscale();
-  void Harris(double sigma);
+  std::vector<std::pair<int, int> > Harris(double sigma);
   void Sharpen(void);
 
   // further operations
+  void drawLine(int x1, int y1, int x2, int y2);
   void blendOtherImageTranslated(R2Image * otherImage);
   void blendOtherImageHomography(R2Image * otherImage);
 

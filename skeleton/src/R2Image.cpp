@@ -9,6 +9,8 @@
 #include "R2Image.h"
 #include "svd.h"
 #include <iostream>
+#include <utility>
+#include <vector>
 #include <math.h>
 
 ////////////////////////////////////////////////////////////////////////
@@ -401,7 +403,7 @@ Greyscale()
   }
 }
 
-void R2Image::
+std::vector<std::pair<int, int> > R2Image::
 Harris(double sigma)
 {
     // Harris corner detector. Make use of the previously developed filters, such as the Gaussian blur filter
@@ -462,6 +464,7 @@ Harris(double sigma)
   free(sobelXY);
   free(sobelX2);
   free(sobelY2);
+  std::vector<std::pair<int, int> > featureData;
 
   if (filterType == 1) {
 
@@ -470,11 +473,14 @@ Harris(double sigma)
     for (int level = 20; level > 0; level--) {
       //featureCounter = 0;
       double threshold = (double) level/20.0 * maxHarris;
+      //featureData.clear();
 
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
           if (harris2DArray[x+y*width] >= threshold) {
             featureCounter++;
+            std::pair<int, int> newCoord = std::make_pair(x, y);
+            featureData.push_back(newCoord);
             for (int ly = -10; ly <= 10; ly++) {
               for (int lx = -10; lx <= 10; lx++) {
                 int xCoord = std::max(0, std::min(x + lx, width -1));
@@ -482,17 +488,17 @@ Harris(double sigma)
                 // Pixel(std::max(0, std::min(x + lx, width -1)),
                 //       std::max(0, std::min(y + ly, height -1))) = R2red_pixel;
                 harris2DArray[xCoord+yCoord*width] = 0;
-                int radius = ly * ly + lx * lx;
-                if (radius <= 18 && radius >= 8) {
-                  Pixel(xCoord, yCoord) = R2red_pixel;
-                }
+                // int radius = ly * ly + lx * lx;
+                // if (radius <= 18 && radius >= 8) {
+                //   Pixel(xCoord, yCoord) = R2red_pixel;
+                //}
               }
             }
           }
         }
       }
 
-      printf("So far I found %d features at %d%% threshold..\n", featureCounter, level*5);
+      //printf("So far I found %d features at %d%% threshold..\n", featureCounter, level*5);
 
       if (featureCounter >= 150) {
         break;
@@ -500,6 +506,7 @@ Harris(double sigma)
     }
     printf("There are %d features in total!\n", featureCounter);
   }
+    return featureData;
 }
 
 
@@ -529,6 +536,38 @@ Sharpen()
   *this = temp;
 }
 
+void R2Image::
+drawLine(int x1, int y1, int x2, int y2)
+{
+  double deltaX = (double) (x2 - x1);
+  double deltaY = (double) (y2 - y1);
+  double deltaErr = deltaY/deltaX;
+
+  for (int ly = -4; ly <= 4; ly++) {
+      for (int lx = -4; lx <= 4; lx++) {
+        int xCoord1 = std::max(0, std::min(x1 + lx, width -1));
+        int yCoord1 = std::max(0, std::min(y1 + ly, height -1));
+        int xCoord2 = std::max(0, std::min(x2 + lx, width -1));
+        int yCoord2 = std::max(0, std::min(y2 + ly, height -1));
+        int radius = ly * ly + lx * lx;
+        if (radius <= 18 && radius >= 8) {
+          Pixel(xCoord1, yCoord1) = R2red_pixel;
+        }
+        if (abs(ly) == 3 ||abs(lx) == 3) {
+          Pixel(xCoord2, yCoord2) = R2blue_pixel;
+        }
+      }
+    }
+
+  for (int y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
+    for (int x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
+      double expectedY = (double) (deltaErr * (x - x1) + y1);
+      if (expectedY <= y + .5 && expectedY >= y - .5) {
+        Pixel(x, y) = R2green_pixel;
+      }
+    }
+  }
+}
 
 void R2Image::
 blendOtherImageTranslated(R2Image * otherImage)
@@ -537,6 +576,75 @@ blendOtherImageTranslated(R2Image * otherImage)
 	// compute the matching translation (pixel precision is OK), and blend the translated "otherImage"
 	// into this image with a 50% opacity.
 	fprintf(stderr, "fit other image using translation and blend imageB over imageA\n");
+  R2Image temp(*this);
+  std::vector<std::pair<int, int> > features = temp.Harris(2.0);
+
+  std::cout << "OK, Harris filter is done. Move on to create matchList...\n";
+
+  std::vector<std::pair<int, int> > matchList;
+  double windowSize = 0.2;
+
+  std::cout << "Currently there are " << matchList.size() << " matches found!\n";
+
+  std::cout << "featureList contains " << features.size() << " elements...\n";
+
+  //loop through all the feature points
+  for (int n=0;n<features.size();n++) {
+    std::pair<int, int> pair = features[n];
+    int x = pair.first;
+    int y = pair.second;
+    std::cout << "I'm currently at feature point (" << x << ", " << y << ")\n";
+    //for each feature, scan around a 20% by 20% window
+    R2Pixel minSSD(100000000, 100000000, 1000000000, 1000000000);
+    std::pair<int, int> matchedFeature;
+    int max_X = std::min((int) (x + width*windowSize/2.0), width);
+    int max_Y = std::min((int) (y + height*windowSize/2.0), height);
+    std::cout << "x goes from " << x << " to: " << max_X << "and y goes from "<< y <<" to: " << max_Y << '\n';
+    for (int j = (std::max((int) (y - height*windowSize/2), 0)); j < max_Y; j++) {
+      for (int i = (std::max((int) (x - width*windowSize/2), 0)); i < max_X; i++) {
+        //for each point in the window, define a small 12 px by 12 px panel for SSD calculation.
+          R2Pixel* ssdDiff = new R2Pixel(0, 0, 0, 0);
+
+          for (int row=-6;row<6;row++) {
+            for (int col=-6;col<6;col++) {
+              int otherX = std::max(0, std::min(width, i+col));
+              int otherY = std::max(0, std::min(height, j+row));
+              int thisX = std::max(0, std::min(width, x+col));
+              int thisY = std::max(0, std::min(height, y+row));
+              R2Pixel diff(Pixel(thisX, thisY) - otherImage->Pixel(otherX, otherY));
+              diff = diff * diff;
+              *ssdDiff += diff;
+            }
+          }
+
+          //std::cout << "ssdDiff is: (" << ssdDiff->Luminance() << ")\n";
+          //set minSSD if it turns out that ssdDiff is smaller.
+          if (ssdDiff->Luminance() < minSSD.Luminance()) {
+            minSSD = *ssdDiff;
+            matchedFeature = std::make_pair(i, j);
+          }
+      }
+    }
+    matchList.push_back(matchedFeature);
+    //this->drawLine(x, y, matchedFeature.first, matchedFeature.second);
+    //this->drawLine(x, y, x,y);
+    std::cout << "Feature coordinates: " << matchedFeature.first << ", " << matchedFeature.second << "\n";
+  }
+
+  std::cout << matchList.size();
+
+  for (int n=0;n<matchList.size();n++) {
+    std::pair<int, int> match = matchList.at(n);
+    std::pair<int, int> initial = features.at(n);
+    int x1 = initial.first;
+    int y1 = initial.second;
+    int x2 = match.first;
+    int y2 = match.second;
+    this->drawLine(x1, y1, x2, y2);
+
+    std::cout << "Feature coordinates: " << x2 << ", " << y2 << "\n";
+  }
+
 	return;
 }
 
