@@ -1,4 +1,4 @@
-// Include file for the pixel class 
+// Include file for the pixel class
 #ifndef R2_PIXEL_INCLUDED
 #define R2_PIXEL_INCLUDED
 
@@ -169,7 +169,7 @@ inline double R2Pixel::
 Luminance(void) const
 {
   // Return luminance
-  return 0.30 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+  return c[0] + c[1] + c[2];
 }
 
 

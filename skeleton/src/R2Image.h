@@ -79,9 +79,10 @@ class R2Image {
   void Sharpen(void);
 
   // further operations
-  void drawLine(int x1, int y1, int x2, int y2);
+  void drawLine(int x1, int y1, int x2, int y2, std::string color);
   void blendOtherImageTranslated(R2Image * otherImage);
   void blendOtherImageHomography(R2Image * otherImage);
+  double** homographyEstimate(double* origin, double* match);
 
   // File reading/writing
   int Read(const char *filename);

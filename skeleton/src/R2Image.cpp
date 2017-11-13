@@ -431,11 +431,8 @@ Harris(double sigma)
 
   printf("Finished blrrring...\n");
   R2Pixel offset(.5, .5, .5, 0);
-  printf("1..\n");
   double* harris2DArray = new double[width*height];
-  printf("2..\n");
   double maxHarris = 0;
-    printf("3..\n");
 
   int filterType = 1;
 
@@ -470,9 +467,9 @@ Harris(double sigma)
 
     int featureCounter = 0;
 
-    for (int level = 20; level > 0; level--) {
+    for (int level = 100; level > 0; level--) {
       //featureCounter = 0;
-      double threshold = (double) level/20.0 * maxHarris;
+      double threshold = (double) level/100.0 * maxHarris;
       //featureData.clear();
 
       for (int y = 0; y < height; y++) {
@@ -537,36 +534,51 @@ Sharpen()
 }
 
 void R2Image::
-drawLine(int x1, int y1, int x2, int y2)
+drawLine(int x1, int y1, int x2, int y2, std::string color)
 {
   double deltaX = (double) (x2 - x1);
   double deltaY = (double) (y2 - y1);
   double deltaErr = deltaY/deltaX;
 
-  for (int ly = -4; ly <= 4; ly++) {
-      for (int lx = -4; lx <= 4; lx++) {
-        int xCoord1 = std::max(0, std::min(x1 + lx, width -1));
-        int yCoord1 = std::max(0, std::min(y1 + ly, height -1));
-        int xCoord2 = std::max(0, std::min(x2 + lx, width -1));
-        int yCoord2 = std::max(0, std::min(y2 + ly, height -1));
-        int radius = ly * ly + lx * lx;
-        if (radius <= 18 && radius >= 8) {
-          Pixel(xCoord1, yCoord1) = R2red_pixel;
+  if (color.compare("false")) {
+    for (int ly = -4; ly <= 4; ly++) {
+        for (int lx = -4; lx <= 4; lx++) {
+          int xCoord2 = std::max(0, std::min(x2 + lx, width -1));
+          int yCoord2 = std::max(0, std::min(y2 + ly, height -1));
+          if (abs(ly) <= 3 ||abs(lx) <= 3) {
+            Pixel(xCoord2, yCoord2) = R2blue_pixel;
+          }
         }
-        if (abs(ly) == 3 ||abs(lx) == 3) {
-          Pixel(xCoord2, yCoord2) = R2blue_pixel;
+      }
+    for (int y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
+      for (int x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
+        double expectedY = (double) (deltaErr * (x - x1) + y1);
+        if (expectedY <= y + .5 && expectedY >= y - .5) {
+            Pixel(x, y) = R2green_pixel;
         }
       }
     }
-
-  for (int y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
-    for (int x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
-      double expectedY = (double) (deltaErr * (x - x1) + y1);
-      if (expectedY <= y + .5 && expectedY >= y - .5) {
-        Pixel(x, y) = R2green_pixel;
+  } else if (color.compare("true")) {
+    for (int ly = -4; ly <= 4; ly++) {
+        for (int lx = -4; lx <= 4; lx++) {
+          int xCoord2 = std::max(0, std::min(x2 + lx, width -1));
+          int yCoord2 = std::max(0, std::min(y2 + ly, height -1));
+          if (abs(ly) <= 2 ||abs(lx) <= 2) {
+            Pixel(xCoord2, yCoord2) = R2Pixel(1, 1, 0, 1);
+          }
+        }
+      }
+    for (int y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
+      for (int x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
+        double expectedY = (double) (deltaErr * (x - x1) + y1);
+        if (expectedY <= y + .5 && expectedY >= y - .5) {
+            Pixel(x, y) = R2red_pixel;
+        }
       }
     }
   }
+
+
 }
 
 void R2Image::
@@ -631,7 +643,37 @@ blendOtherImageTranslated(R2Image * otherImage)
     std::cout << "Feature coordinates: " << matchedFeature.first << ", " << matchedFeature.second << "\n";
   }
 
-  std::cout << matchList.size();
+  //a vector of indices for randomly choosing points later
+  std::vector<int> v;
+  for (int i=0;i<matchList.size();i++) {
+    v.push_back(i);
+  }
+
+  //try 60 random vectors and see if they match many inliers.
+  std::vector<int> maxInlier;
+  for (int i=0;i<60;i++) {
+    int random = rand() % v.size();
+    int randIndex = v[random];
+    std::cout << randIndex << " and the are " << v.size() << "left to test." << "\n";
+    v.erase(v.begin() + random);
+    int xDeltaSelected = matchList[randIndex].first - features[randIndex].first;
+    int yDeltaSelected = matchList[randIndex].second - features[randIndex].second;
+    std::vector<int> inlier;
+    //loop through all feature points and find the error distance.
+    for (int j=0;j<features.size();j++) {
+      int xDelta = matchList[j].first - features[j].first;
+      int yDelta = matchList[j].second - features[j].second;
+      int error = (xDelta - xDeltaSelected)*(xDelta - xDeltaSelected) + (yDelta - yDeltaSelected)*(yDelta - yDeltaSelected);
+      if (error <= 9) {
+        //if error is lower than threshold, then count as inlier.
+        inlier.push_back(j);
+      }
+    }
+    //update the max inlier size
+    if (inlier.size() > maxInlier.size()) {
+      maxInlier = inlier;
+    }
+  }
 
   for (int n=0;n<matchList.size();n++) {
     std::pair<int, int> match = matchList.at(n);
@@ -640,9 +682,11 @@ blendOtherImageTranslated(R2Image * otherImage)
     int y1 = initial.second;
     int x2 = match.first;
     int y2 = match.second;
-    this->drawLine(x1, y1, x2, y2);
-
-    std::cout << "Feature coordinates: " << x2 << ", " << y2 << "\n";
+    if (std::find(maxInlier.begin(), maxInlier.end(), n) != maxInlier.end()) {
+      this->drawLine(x1, y1, x2, y2, "true");
+    } else {
+      this->drawLine(x1, y1, x2, y2, "false");
+    }
   }
 
 	return;
@@ -654,7 +698,137 @@ blendOtherImageHomography(R2Image * otherImage)
 	// find at least 100 features on this image, and another 100 on the "otherImage". Based on these,
 	// compute the matching homography, and blend the transformed "otherImage" into this image with a 50% opacity.
 	fprintf(stderr, "fit other image using a homography and blend imageB over imageA\n");
+  R2Image temp(*this);
+  std::vector<std::pair<int, int> > features = temp.Harris(2.0);
+
+  std::cout << "OK, Harris filter is done. Move on to create matchList...\n";
+
+  std::vector<std::pair<int, int> > matchList;
+  double windowSize = 0.2;
+
+  std::cout << "Currently there are " << matchList.size() << " matches found!\n";
+
+  std::cout << "featureList contains " << features.size() << " elements...\n";
+
+  //loop through all the feature points
+  for (int n=0;n<features.size();n++) {
+    std::pair<int, int> pair = features[n];
+    int x = pair.first;
+    int y = pair.second;
+    std::cout << "I'm currently at feature point (" << x << ", " << y << ")\n";
+    //for each feature, scan around a 20% by 20% window
+    R2Pixel minSSD(0, 0, 0, 0);
+    std::pair<int, int> matchedFeature;
+    int max_X = std::min((int) (x + width*windowSize/2.0), width);
+    int max_Y = std::min((int) (y + height*windowSize/2.0), height);
+    int min_X = std::max((int) (x - width*windowSize/2.0), 0);
+    int min_Y = std::max((int) (y - height*windowSize/2.0), 0);
+    std::cout << "x goes from " << min_X << " to: " << max_X << "and y goes from "<< min_Y <<" to: " << max_Y << '\n';
+    for (int j = min_Y; j < max_Y; j++) {
+      for (int i = min_X; i < max_X; i++) {
+        //for each point in the window, define a small 12 px by 12 px panel for SSD calculation.
+          R2Pixel* ssdDiff = new R2Pixel(0, 0, 0, 0);
+
+          for (int row=-6;row<6;row++) {
+            for (int col=-6;col<6;col++) {
+              int otherX = std::max(0, std::min(width, i+col));
+              int otherY = std::max(0, std::min(height, j+row));
+              int thisX = std::max(0, std::min(width, x+col));
+              int thisY = std::max(0, std::min(height, y+row));
+              R2Pixel diff(Pixel(thisX, thisY) - otherImage->Pixel(otherX, otherY));
+              diff = diff * diff;
+              *ssdDiff += diff;
+            }
+          }
+          if (i == min_X && j == min_Y) {
+            minSSD = *ssdDiff;
+            matchedFeature = std::make_pair(i, j);
+          } else if (ssdDiff->Luminance() < minSSD.Luminance()) {
+            //set minSSD if it turns out that ssdDiff is smaller.
+            minSSD = *ssdDiff;
+            matchedFeature = std::make_pair(i, j);
+          }
+      }
+    }
+    matchList.push_back(matchedFeature);
+    std::cout << "Feature coordinates: " << matchedFeature.first << ", " << matchedFeature.second << "\n";
+  }
+
+  std::cout << matchList.size() << "\n";
+
+  //a vector of indices for randomly choosing points later
+  std::vector<int> v;
+  for (int i=0;i<matchList.size();i++) {
+    v.push_back(i);
+  }
+
+  std::vector<int> maxInlier;
+
+  //find 4 random feature points first.
+
+  //then compute the homography matrix using the homographyMat method.
+
+
+  //apply this matrix onto all the feature points in original image,
+  //then compare the resulting point with the corresponding point in matchList.
+
 	return;
+}
+
+double** R2Image::
+homographyEstimate(double origin[], double match[]) {
+  double **a = dmatrix(1,8,1,9);
+  for (int i=0;i<4;i++) {
+    int first = 2*i;
+    int second = 2*i + 1;
+    a[first+1][1] = 0;
+    a[first+1][2] = 0;
+    a[first+1][3] = 0;
+    a[first+1][4] = -origin[first];
+    a[first+1][5] = -origin[second];
+    a[first+1][6] = -1;
+    a[first+1][7] = match[second]*origin[first];
+    a[first+1][8] = match[second]*origin[second];
+    a[first+1][9] = match[second];
+    a[second+1][1] = origin[first];
+    a[second+1][2] = origin[second];
+    a[second+1][3] = 1;
+    a[second+1][4] = 0;
+    a[second+1][5] = 0;
+    a[second+1][6] = 0;
+    a[second+1][7] = -origin[first]*match[first];
+    a[second+1][8] = -match[first]*origin[second];
+    a[second+1][9] = -match[first];
+  }
+  // compute the SVD
+	double singularValues[10]; // 1..6
+	double** nullspaceMatrix = dmatrix(1,9,1,9);
+	svdcmp(a, 8, 9, singularValues, nullspaceMatrix);
+
+	// get the result
+	printf("\n Singular values: %f, %f, %f, %f, %f, %f, %f, %f, %f\n",singularValues[1],singularValues[2],singularValues[3],singularValues[4],singularValues[5],singularValues[6],singularValues[7],singularValues[8],singularValues[9]);
+
+	// find the smallest singular value:
+	int smallestIndex = 1;
+	for(int i=2;i<=9;i++) if(singularValues[i]<singularValues[smallestIndex]) smallestIndex=i;
+
+  std::cout << "Hey, the smallestIndex is " << smallestIndex << '\n';
+
+  double** homographyMat = dmatrix(1, 3, 1, 3);
+  for (int i=1;i<=3;i++) {
+    double x = nullspaceMatrix[3*i-2][smallestIndex];
+    double y = nullspaceMatrix[3*i-1][smallestIndex];
+    double z = nullspaceMatrix[3*i][smallestIndex];
+    if (x < 1e-15 && x >-1e-15) x=0;
+    if (y < 1e-15 && y >-1e-15) y=0;
+    if (z < 1e-15 && z >-1e-15) z=0;
+    double row[] = {x, y, z};
+    homographyMat[i] = row;
+    std::cout << x << ",    " << y  << ",    " << z << "\n";
+  }
+
+  return homographyMat;
+
 }
 
 ////////////////////////////////////////////////////////////////////////

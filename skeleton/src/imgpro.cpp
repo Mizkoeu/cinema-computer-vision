@@ -142,6 +142,28 @@ main(int argc, char **argv)
   // Read input and output image filenames
   if (argc < 3)  ShowUsage();
   argv++, argc--; // First argument is program name
+
+  if (argc >= 10) {
+    if (!strcmp(*argv, "-homography")) {
+      //CheckOption(*argv, argc, 2);
+      R2Image *image = new R2Image();
+      argv ++, argc --;
+      double origin[8];
+      double match[8];
+      for (int i=0;i<8;i++) {
+        double num = (double) atof(argv[0]);
+        origin[i] = num;
+        argv ++, argc --;
+      }
+      for (int i=0;i<8;i++) {
+        double num = (double) atof(argv[0]);
+        match[i] = num;
+        argv ++, argc --;
+      }
+      image->homographyEstimate(origin, match);
+    }
+  } else {
+
   char *input_image_name = *argv; argv++, argc--;
   char *output_image_name = *argv; argv++, argc--;
 
@@ -235,4 +257,5 @@ main(int argc, char **argv)
 
   // Return success
   return EXIT_SUCCESS;
+}
 }
