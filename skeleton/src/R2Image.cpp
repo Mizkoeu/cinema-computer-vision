@@ -759,7 +759,7 @@ blendOtherImageHomography(R2Image * otherImage)
 
   std::vector<int> maxInlier;
 
-  for (int i=0;i<150;i++) {
+  for (int i=0;i<1000;i++) {
     //a vector of indices for randomly choosing points later
     std::vector<int> v;
     for (int i=0;i<matchList.size();i++) {
