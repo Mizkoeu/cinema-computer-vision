@@ -238,6 +238,12 @@ main(int argc, char **argv)
       argv += 2, argc -= 2;
       image->blendOtherImageHomography(other_image);
       delete other_image;
+    } else if (!strcmp(*argv, "-stitch")) {
+      CheckOption(*argv, argc, 2);
+      R2Image *other_image = new R2Image(argv[1]);
+      argv += 2, argc -= 2;
+      *image = image->stitchOtherImageHomography(other_image);
+      delete other_image;
     }
     else {
       // Unrecognized program argument

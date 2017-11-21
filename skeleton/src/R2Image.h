@@ -81,7 +81,9 @@ class R2Image {
   // further operations
   void drawLine(int x1, int y1, int x2, int y2, std::string color);
   void blendOtherImageTranslated(R2Image * otherImage);
+  R2Image stitchOtherImageHomography(R2Image * otherImage);
   void blendOtherImageHomography(R2Image * otherImage);
+  double** multiplePointHomography(std::vector<int> origin, std::vector<int> match);
   double** homographyEstimate(double* origin, double* match);
 
   // File reading/writing

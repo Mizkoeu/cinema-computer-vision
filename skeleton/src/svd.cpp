@@ -59,6 +59,34 @@ double pythag(double a, double b)
 	else return (absb == 0.0 ? 0.0 : absb*sqrt(1.0+(absa/absb)*(absa/absb)));
 }
 
+double** matrixMul(double** a, double** b) {
+	double** output = dmatrix(1,3,1,3);
+	output[1][1]= a[1][1]*b[1][1]+a[1][2]*b[2][1]+a[1][3]*b[3][1];
+	output[1][2]= a[1][1]*b[1][2]+a[1][2]*b[2][2]+a[1][3]*b[3][2];
+	output[1][3]= a[1][1]*b[1][3]+a[1][2]*b[2][3]+a[1][3]*b[3][3];
+	output[2][1]= a[2][1]*b[1][1]+a[2][2]*b[2][1]+a[2][3]*b[3][1];
+	output[2][2]= a[2][1]*b[1][2]+a[2][2]*b[2][2]+a[2][3]*b[3][2];
+	output[2][3]= a[2][1]*b[1][3]+a[2][2]*b[2][3]+a[2][3]*b[3][3];
+	output[3][1]= a[3][1]*b[1][1]+a[3][2]*b[2][1]+a[3][3]*b[3][1];
+	output[3][2]= a[3][1]*b[1][2]+a[3][2]*b[2][2]+a[3][3]*b[3][2];
+	output[3][3]= a[3][1]*b[1][3]+a[3][2]*b[2][3]+a[3][3]*b[3][3];
+	return output;
+}
+
+double** transpose(double** a) {
+	double** output = dmatrix(1,3,1,3);
+	output[1][1] = a[1][1];
+	output[1][2] = a[2][1];
+	output[1][3] = a[3][1];
+	output[2][1] = a[1][2];
+	output[2][2] = a[2][2];
+	output[2][3] = a[3][2];
+	output[3][1] = a[1][3];
+	output[3][2] = a[2][3];
+	output[3][3] = a[3][3];
+	return output;
+}
+
 /******************************************************************************/
 void svdcmp(double **a, int m, int n, double w[], double **v)
 /*******************************************************************************
@@ -242,4 +270,20 @@ the transpose VT) is output as v[1..n][1..n].
 		}
 	}
 	free_dvector(rv1,1,n);
+}
+
+double** inverseCmp(double** input){
+  double** inverse = dmatrix(1,3,1,3);
+  // compute the SVD
+	double singularValues[4]; // 1..6
+	double** nullspaceMatrix = dmatrix(1,3,1,3);
+  svdcmp(input, 3, 3, singularValues, nullspaceMatrix);
+	double** u = transpose(input);
+	double** v = nullspaceMatrix;
+	double** singularMat = dmatrix(1,3,1,3);
+	singularMat[1][1] = 1.0/singularValues[1];
+	singularMat[2][2] = 1.0/singularValues[2];
+	singularMat[3][3] = 1.0/singularValues[3];
+	inverse = matrixMul(v, matrixMul(singularMat, u));
+	return inverse;
 }
